@@ -190,7 +190,11 @@
     <div class="powered-cs">Powered<br>CS</div>
   </div>
 
-  <script>
+<script>
+    // --- CONFIGURACIÓN DEL ENTORNO ---
+    // Pega aquí la URL de implementación de tu Google Apps Script
+    const API_URL = 'TU_URL_DE_APPS_SCRIPT_AQUI'; 
+
     let datosActuales = {
       dniSocio: '', nombreSocio: '', apellidoSocio: '', alias: '',
       dniComprador: '', nombreComprador: '', apellidoComprador: '',
@@ -205,16 +209,37 @@
       document.getElementById(id).classList.remove('hidden');
     }
 
-    function verificarVendedor() {
+    // Función genérica para conectar con el backend de Google
+    async function enviarPeticionGoogle(datos) {
+      try {
+        const respuesta = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8', // Evita bloqueos CORS previos en Apps Script
+          },
+          body: JSON.stringify(datos)
+        });
+        return await respuesta.json();
+      } catch (error) {
+        console.error("Error de conexión:", error);
+        alert("Ocurrió un error de conexión. Verifique la consola para más detalles.");
+        return null;
+      }
+    }
+
+    async function verificarVendedor() {
       const dni = document.getElementById('loginDni').value;
-      if (!dni) return alert('Por favor, ingrese un DNI.');
+      if (!dni) return alert('Por favor, ingrese un DNI válido.');
       
       document.getElementById('loader-1').classList.remove('hidden');
       
-      google.script.run.withSuccessHandler(function(resultado) {
-        document.getElementById('loader-1').classList.add('hidden');
+      const payload = { accion: 'verificarVendedor', dni: dni };
+      const resultado = await enviarPeticionGoogle(payload);
+      
+      document.getElementById('loader-1').classList.add('hidden');
+      
+      if (resultado) {
         datosActuales.dniSocio = dni;
-        
         if (resultado.encontrado) {
           datosActuales.nombreSocio = resultado.nombreSocio;
           datosActuales.apellidoSocio = resultado.apellidoSocio;
@@ -223,7 +248,7 @@
         } else {
           mostrarSeccion('sec-registro-vendedor');
         }
-      }).checkVendedor(dni);
+      }
     }
 
     function guardarNuevoVendedor() {
@@ -231,7 +256,7 @@
       const ape = document.getElementById('regApellidoSocio').value;
       const alias = document.getElementById('regAlias').value;
       
-      if(!nom || !ape || !alias) return alert('Complete todos los campos del vendedor.');
+      if(!nom || !ape || !alias) return alert('Debe completar todos los campos del perfil comercial.');
       
       datosActuales.nombreSocio = nom;
       datosActuales.apellidoSocio = ape;
@@ -241,11 +266,11 @@
     }
 
     function prepararPantallaVenta() {
-      document.getElementById('info-vendedor').innerText = `Vendedor Activo: ${datosActuales.nombreSocio} ${datosActuales.apellidoSocio} | Alias: ${datosActuales.alias}`;
+      document.getElementById('info-vendedor').innerText = `Gestor Activo: ${datosActuales.nombreSocio} ${datosActuales.apellidoSocio} | Alias: ${datosActuales.alias}`;
       mostrarSeccion('sec-venta');
     }
 
-    function procesarVenta() {
+    async function procesarVenta() {
       datosActuales.dniComprador = document.getElementById('compDni').value;
       datosActuales.nombreComprador = document.getElementById('compNombre').value;
       datosActuales.apellidoComprador = document.getElementById('compApellido').value;
@@ -254,15 +279,21 @@
       datosActuales.montoAbonar = document.getElementById('compMonto').value;
 
       if(!datosActuales.dniComprador || !datosActuales.nombreComprador || !datosActuales.telefono || !datosActuales.cupos || !datosActuales.montoAbonar) {
-        return alert('Por favor, complete los datos obligatorios del comprador.');
+        return alert('Por favor, complete los datos obligatorios de la transacción.');
       }
 
       document.getElementById('loader-2').classList.remove('hidden');
 
-      google.script.run.withSuccessHandler(function() {
-        document.getElementById('loader-2').classList.add('hidden');
+      const payload = { accion: 'registrarVenta', datos: datosActuales };
+      const resultado = await enviarPeticionGoogle(payload);
+
+      document.getElementById('loader-2').classList.add('hidden');
+
+      if (resultado && resultado.exito) {
         mostrarSeccion('sec-exito');
-      }).registrarVenta(datosActuales);
+      } else {
+        alert('Hubo un error al procesar el registro en la base de datos.');
+      }
     }
 
     function enviarWhatsapp() {
